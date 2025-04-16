@@ -19,18 +19,26 @@ import java.util.Date;
 public class JwtAdapter implements IJwtPersistencePort {
     private static final Logger logger = LoggerFactory.getLogger(JwtAdapter.class);
     private final JwtKeyProvider jwtKeyProvider;
+    private final String jwtSecret;
 
-    public JwtAdapter(JwtKeyProvider jwtKeyProvider) {
+    public JwtAdapter(JwtKeyProvider jwtKeyProvider, String jwtSecretKey) {
         this.jwtKeyProvider = jwtKeyProvider;
+        this.jwtSecret = jwtSecretKey;
     }
 
     @Override
     public String generateToken(UserModel userModel, String secret, int expiration) {
         try {
+            // Use injected secret if provided one is null
+            if (secret == null || secret.isEmpty()) {
+                secret = this.jwtSecret;
+            }
+
             SecretKey key = jwtKeyProvider.getSigningKey(secret);
 
             return Jwts.builder()
                     .setSubject(userModel.getEmail())
+                    .claim("userId", userModel.getId())
                     .claim("role", userModel.getRole())
                     .setIssuedAt(new Date())
                     .setExpiration(new Date(System.currentTimeMillis() + expiration))
@@ -44,11 +52,17 @@ public class JwtAdapter implements IJwtPersistencePort {
 
     @Override
     public String getUsernameFromToken(String token, String secret) {
+        if (secret == null || secret.isEmpty()) {
+            secret = this.jwtSecret;
+        }
         return getClaimsFromToken(token, secret).getSubject();
     }
 
     @Override
     public String getRoleFromToken(String token, String secret) {
+        if (secret == null || secret.isEmpty()) {
+            secret = this.jwtSecret;
+        }
         Claims claims = getClaimsFromToken(token, secret);
         return claims.get("role", String.class);
     }
@@ -56,12 +70,19 @@ public class JwtAdapter implements IJwtPersistencePort {
     @Override
     public boolean isTokenValid(String token, String secret) {
         try {
+            if (secret == null || secret.isEmpty()) {
+                secret = this.jwtSecret;
+            }
+
             SecretKey key = jwtKeyProvider.getSigningKey(secret);
             Jwts.parserBuilder()
                     .setSigningKey(key)
                     .build()
                     .parseClaimsJws(token);
             return true;
+        } catch (ExpiredJwtException e) {
+            logger.warn("JWT token expired: {}", e.getMessage());
+            return false;
         } catch (JwtException | IllegalArgumentException e) {
             logger.error("JWT token validation failed: {}", e.getMessage());
             return false;

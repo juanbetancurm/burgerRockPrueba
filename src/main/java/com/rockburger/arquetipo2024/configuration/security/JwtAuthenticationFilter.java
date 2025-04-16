@@ -2,15 +2,14 @@ package com.rockburger.arquetipo2024.configuration.security;
 
 import com.rockburger.arquetipo2024.domain.api.IJwtServicePort;
 import com.rockburger.arquetipo2024.domain.model.UserModel;
-import org.springframework.util.StringUtils;
-import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
-
+import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -26,11 +25,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final IJwtServicePort jwtServicePort;
     private final UserDetailsService userDetailsService;
+    private final JwtContextHolder jwtContextHolder;
 
     public JwtAuthenticationFilter(IJwtServicePort jwtServicePort,
-                                   UserDetailsService userDetailsService) {
+                                   UserDetailsService userDetailsService,
+                                   JwtContextHolder jwtContextHolder) {
         this.jwtServicePort = jwtServicePort;
         this.userDetailsService = userDetailsService;
+        this.jwtContextHolder = jwtContextHolder;
     }
 
     @Override
@@ -44,6 +46,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     jwt != null ? "present" : "not present");
 
             if (jwt != null) {
+                // Store the token in ThreadLocal for Feign clients to use
+                jwtContextHolder.setToken(jwt);
+
                 UserModel user = jwtServicePort.validateAndGetUserFromToken(jwt);
                 logger.debug("User authenticated with role: {}", user.getRole());
                 UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
@@ -61,10 +66,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {
-            logger.error("Cannot set user authentication", e);
+            logger.error("Cannot set user authentication: {}", e.getMessage());
         }
 
-        filterChain.doFilter(request, response);
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            // Clear the ThreadLocal after the request is processed to prevent memory leaks
+            jwtContextHolder.clearToken();
+        }
     }
 
     private String extractJwtFromRequest(HttpServletRequest request) {

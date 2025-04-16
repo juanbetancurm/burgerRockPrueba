@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/shopping-cart")
 @SecurityRequirement(name = "bearer-jwt")
-@PreAuthorize("hasRole('client')")
+@PreAuthorize("hasAnyRole('client', 'auxiliar')")
 @RequiredArgsConstructor
 public class ShoppingCartController {
     private static final Logger logger = LoggerFactory.getLogger(ShoppingCartController.class);

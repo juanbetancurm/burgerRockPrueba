@@ -20,6 +20,7 @@ import com.rockburger.arquetipo2024.domain.model.UserModel;
 import com.rockburger.arquetipo2024.domain.spi.*;
 import com.rockburger.arquetipo2024.domain.spi.IPasswordEncryptionPort;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -177,9 +178,12 @@ public class BeanConfiguration {
     private int jwtExpiration;
 
     @Bean
-    public IJwtPersistencePort jwtPersistencePort(JwtKeyProvider jwtKeyProvider) {
-        return new JwtAdapter(jwtKeyProvider);
+    public IJwtPersistencePort jwtPersistencePort(
+            JwtKeyProvider jwtKeyProvider,
+            @Qualifier("jwtSecretKey") String jwtSecretKey) {
+        return new JwtAdapter(jwtKeyProvider, jwtSecretKey);
     }
+
     @Bean
     public IJwtServicePort jwtServicePort(
             IJwtPersistencePort jwtPersistencePort,
