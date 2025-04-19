@@ -4,6 +4,7 @@ import com.rockburger.arquetipo2024.domain.api.IJwtServicePort;
 import com.rockburger.arquetipo2024.domain.model.UserModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,13 +21,13 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 @Component
+@Order(1) // Add this annotation with a low value to ensure it runs early
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final IJwtServicePort jwtServicePort;
     private final UserDetailsService userDetailsService;
 
-    // Constructor simplified - removed JwtContextHolder as we're not using it anymore
     public JwtAuthenticationFilter(IJwtServicePort jwtServicePort,
                                    UserDetailsService userDetailsService) {
         this.jwtServicePort = jwtServicePort;
@@ -51,7 +52,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 logger.debug("UserDetails loaded with authorities: {}", userDetails.getAuthorities());
 
                 // Store the JWT token in Authentication credentials
-                // This allows the token to be retrieved by the Feign interceptor
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 userDetails,

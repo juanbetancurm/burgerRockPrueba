@@ -16,12 +16,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableGlobalMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final SecurityContextCopyingRequestInterceptor securityContextInterceptor;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          SecurityContextCopyingRequestInterceptor securityContextInterceptor) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-        this.securityContextInterceptor = securityContextInterceptor;
     }
 
     @Bean
@@ -47,8 +44,6 @@ public class SecurityConfig {
                 .hasRole("client")
                 .anyRequest().authenticated()
                 .and()
-                // Add the context copying filter BEFORE the JWT filter to ensure context is available
-                .addFilterBefore(securityContextInterceptor, JwtAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

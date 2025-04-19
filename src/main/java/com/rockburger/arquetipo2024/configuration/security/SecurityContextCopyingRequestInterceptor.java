@@ -12,47 +12,45 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Stores the SecurityContext for the duration of the request
- * to make it available to background threads.
- */
 @Component
 public class SecurityContextCopyingRequestInterceptor implements Filter {
     private static final Logger logger = LoggerFactory.getLogger(SecurityContextCopyingRequestInterceptor.class);
 
-    // Use ConcurrentHashMap to store request-specific security contexts
     private final ConcurrentHashMap<String, SecurityContext> requestSecurityContexts = new ConcurrentHashMap<>();
+
+    @Override
+    public void init(FilterConfig filterConfig) throws ServletException {
+        logger.info("Initializing SecurityContextCopyingRequestInterceptor");
+    }
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-        // Generate a unique request ID
         String requestId = generateRequestId((HttpServletRequest)request);
 
         try {
-            // Store the security context at the beginning of request processing
             SecurityContext context = SecurityContextHolder.getContext();
             Authentication auth = context.getAuthentication();
 
             if (auth != null) {
                 logger.debug("Storing SecurityContext for request: {}", requestId);
                 requestSecurityContexts.put(requestId, context);
-
-                // Set thread-local request ID to allow retrieval by other components
                 RequestContextHolder.setRequestId(requestId);
             }
 
             chain.doFilter(request, response);
         } finally {
-            // Clean up after request is complete
             requestSecurityContexts.remove(requestId);
             RequestContextHolder.clear();
         }
     }
 
-    /**
-     * Returns the SecurityContext for the current request, if available
-     */
+    @Override
+    public void destroy() {
+        logger.info("Destroying SecurityContextCopyingRequestInterceptor");
+        requestSecurityContexts.clear();
+    }
+
     public SecurityContext getSecurityContextForCurrentRequest() {
         String requestId = RequestContextHolder.getRequestId();
         if (requestId != null) {
