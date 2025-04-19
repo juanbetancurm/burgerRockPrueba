@@ -1,23 +1,19 @@
 package com.rockburger.arquetipo2024.adapters.driven.feign.config;
 
-import com.rockburger.arquetipo2024.configuration.security.JwtContextHolder;
+import com.rockburger.arquetipo2024.configuration.security.SecurityContextCopyingRequestInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 
-/**
- * Configuration for Feign clients to properly interact with the cart service.
- */
 @Configuration
 public class FeignClientConfig {
-    private final JwtContextHolder jwtContextHolder;
+    private final SecurityContextCopyingRequestInterceptor securityContextInterceptor;
 
-    public FeignClientConfig(@Lazy JwtContextHolder jwtContextHolder) {
-        this.jwtContextHolder = jwtContextHolder;
+    public FeignClientConfig(SecurityContextCopyingRequestInterceptor securityContextInterceptor) {
+        this.securityContextInterceptor = securityContextInterceptor;
     }
 
     @Bean
     public JwtTokenInterceptor jwtTokenInterceptor() {
-        return new JwtTokenInterceptor(jwtContextHolder);
+        return new JwtTokenInterceptor(securityContextInterceptor);
     }
 }

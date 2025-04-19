@@ -2,6 +2,8 @@ package com.rockburger.arquetipo2024.configuration.security;
 
 import com.rockburger.arquetipo2024.domain.api.IJwtServicePort;
 import com.rockburger.arquetipo2024.domain.model.UserModel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -16,8 +18,6 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -25,14 +25,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final IJwtServicePort jwtServicePort;
     private final UserDetailsService userDetailsService;
-    private final JwtContextHolder jwtContextHolder;
 
+    // Constructor simplified - removed JwtContextHolder as we're not using it anymore
     public JwtAuthenticationFilter(IJwtServicePort jwtServicePort,
-                                   UserDetailsService userDetailsService,
-                                   JwtContextHolder jwtContextHolder) {
+                                   UserDetailsService userDetailsService) {
         this.jwtServicePort = jwtServicePort;
         this.userDetailsService = userDetailsService;
-        this.jwtContextHolder = jwtContextHolder;
     }
 
     @Override
@@ -41,40 +39,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
             String jwt = extractJwtFromRequest(request);
-
             logger.debug("Processing request to '{}' with JWT: {}", request.getRequestURI(),
                     jwt != null ? "present" : "not present");
 
             if (jwt != null) {
-                // Store the token in ThreadLocal for Feign clients to use
-                jwtContextHolder.setToken(jwt);
-
+                // Validate JWT token and get user information
                 UserModel user = jwtServicePort.validateAndGetUserFromToken(jwt);
                 logger.debug("User authenticated with role: {}", user.getRole());
-                UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
-                logger.debug("UserDetails loaded with authorities: {}",
-                        userDetails.getAuthorities());
 
+                UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+                logger.debug("UserDetails loaded with authorities: {}", userDetails.getAuthorities());
+
+                // Store the JWT token in Authentication credentials
+                // This allows the token to be retrieved by the Feign interceptor
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 userDetails,
-                                null,
+                                jwt, // Store JWT token here for later retrieval
                                 userDetails.getAuthorities()
                         );
 
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                logger.debug("Set authentication in SecurityContext with token");
             }
         } catch (Exception e) {
             logger.error("Cannot set user authentication: {}", e.getMessage());
         }
 
-        try {
-            filterChain.doFilter(request, response);
-        } finally {
-            // Clear the ThreadLocal after the request is processed to prevent memory leaks
-            jwtContextHolder.clearToken();
-        }
+        filterChain.doFilter(request, response);
     }
 
     private String extractJwtFromRequest(HttpServletRequest request) {

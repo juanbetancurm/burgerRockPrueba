@@ -12,6 +12,20 @@ spring:
     hibernate:
       ddl-auto: update
 
+  main:
+    allow-bean-definition-overriding: true
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 5000
+            readTimeout: 5000
+
+            requestInterceptors:
+              - com.rockburger.arquetipo2024.adapters.driven.feign.config.JwtTokenInterceptor
+
+
 jwt:
   secret: "9qZgHlZ5Kg+POpcNp1YWlN5F/mkDoYysAaMAzvCydswRhE+tzLXytB/bNiU+NjPiCbKN7UZWFkgtw0wXSDYWQg=="  #WhileTesting
   expiration: 3600000 #60minsWhileTesting
